@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Text Repeater</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f7fb;
+      --card: #ffffff;
+      --text: #172033;
+      --muted: #667085;
+      --accent: #315efb;
+      --accent-hover: #2448cf;
+      --border: #d9e0ec;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 24px;
+      display: grid;
+      place-items: center;
+      background: radial-gradient(circle at top left, #e5edff, transparent 45%), var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+    .app {
+      width: min(100%, 680px);
+      padding: clamp(20px, 5vw, 36px);
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      box-shadow: 0 18px 50px rgba(31, 48, 86, .10);
+    }
+    h1 { margin: 0 0 8px; font-size: clamp(1.6rem, 4vw, 2rem); }
+    .intro { margin: 0 0 24px; color: var(--muted); line-height: 1.6; }
+    label { display: block; margin: 16px 0 7px; font-weight: 650; }
+    input, textarea {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #fff;
+      color: var(--text);
+      font: inherit;
+      outline: none;
+    }
+    input:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(49, 94, 251, .13); }
+    input[type="number"] { max-width: 220px; }
+    .hint { color: var(--muted); font-size: .9rem; margin: 7px 0 0; }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+    button {
+      border: 0;
+      border-radius: 10px;
+      padding: 11px 16px;
+      font: inherit;
+      font-weight: 650;
+      cursor: pointer;
+    }
+    button:focus-visible { outline: 3px solid #9ab0ff; outline-offset: 2px; }
+    .primary { background: var(--accent); color: white; }
+    .primary:hover { background: var(--accent-hover); }
+    .secondary { background: #edf1f8; color: var(--text); }
+    .output-wrap { margin-top: 24px; }
+    .output-head { display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .output-head label { margin: 0 0 8px; }
+    #output { min-height: 170px; resize: vertical; overflow-wrap: anywhere; }
+    .status { min-height: 1.5em; margin: 10px 0 0; color: var(--muted); font-size: .92rem; }
+    .status.error { color: #b42318; }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <h1>Text Repeater</h1>
+    <p class="intro">Enter any text and choose how many times you want it to repeat.</p>
+
+    <form id="repeatForm">
+      <label for="sourceText">Text to repeat</label>
+      <input id="sourceText" type="text" placeholder="Example: A" maxlength="1000" required>
+
+      <label for="repeatCount">Number of repetitions</label>
+      <input id="repeatCount" type="number" min="1" max="100000" step="1" value="100" required>
+      <p class="hint">Maximum: 100,000 repetitions to help prevent the browser from slowing down.</p>
+
+      <div class="actions">
+        <button class="primary" type="submit">Generate Text</button>
+        <button class="secondary" type="button" id="copyBtn">Copy Text</button>
+        <button class="secondary" type="button" id="downloadBtn">Download TXT</button>
+      </div>
+    </form>
+
+    <section class="output-wrap">
+      <div class="output-head">
+        <label for="output">Result</label>
+        <span id="charCount" class="hint">0 characters</span>
+      </div>
+      <textarea id="output" readonly placeholder="Your repeated text will appear here."></textarea>
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+    </section>
+  </main>
+
+  <script>
+    const form = document.getElementById("repeatForm");
+    const sourceText = document.getElementById("sourceText");
+    const repeatCount = document.getElementById("repeatCount");
+    const output = document.getElementById("output");
+    const charCount = document.getElementById("charCount");
+    const status = document.getElementById("status");
+
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+
+      const text = sourceText.value;
+      const count = Number(repeatCount.value);
+
+      if (!text.length) {
+        showStatus("Please enter some text first.", true);
+        return;
+      }
+      if (!Number.isInteger(count) || count < 1 || count > 100000) {
+        showStatus("Please enter a whole number between 1 and 100,000.", true);
+        return;
+      }
+
+      output.value = text.repeat(count);
+      charCount.textContent = `${output.value.length.toLocaleString()} characters`;
+      showStatus(`Done! The text was repeated ${count.toLocaleString()} times.`, false);
+    });
+
+    document.getElementById("copyBtn").addEventListener("click", async () => {
+      if (!output.value) {
+        showStatus("Generate the text first.", true);
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(output.value);
+        showStatus("Text copied to clipboard.", false);
+      } catch {
+        output.focus();
+        output.select();
+        const copied = document.execCommand("copy");
+        showStatus(copied ? "Text copied." : "Text selected. Press Ctrl+C to copy.", !copied);
+      }
+    });
+
+    document.getElementById("downloadBtn").addEventListener("click", () => {
+      if (!output.value) {
+        showStatus("Generate the text first.", true);
+        return;
+      }
+      const blob = new Blob([output.value], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "repeated-text.txt";
+      link.click();
+      URL.revokeObjectURL(url);
+      showStatus("TXT download started.", false);
+    });
+
+    function showStatus(message, isError) {
+      status.textContent = message;
+      status.classList.toggle("error", isError);
+    }
+  </script>
+</body>
+</html>
